@@ -1,0 +1,26 @@
+{
+  "attendance": [],
+  "employees": [
+    {
+      "createdAt": "2026-03-07T19:28:01.511Z",
+      "employeeId": "EMP-001",
+      "embeddingVersion": 1,
+      "faceEmbedding": [],
+      "id": "employee-1772911681512-331206",
+      "name": "Pranav",
+      "team": "Engineering",
+      "updatedAt": "2026-03-07T19:28:01.511Z"
+    },
+    {
+      "createdAt": "2026-03-07T19:29:36.704Z",
+      "employeeId": "EMP-002",
+      "embeddingVersion": 1,
+      "faceEmbedding": [],
+      "id": "employee-1772911776704-7684",
+      "name": "Test2",
+      "team": "Engineering",
+      "updatedAt": "2026-03-07T19:29:36.704Z",
+      "faceImageUrl": "http://localhost:4000/uploads/employees/emp-002/2026-03-07T19-29-36-704Z-upload-1772911776704-400535.jpg"
+    }
+  ]
+}

@@ -1,97 +1,120 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Attendance Kiosk
 
-# Getting Started
+React Native tablet kiosk plus Express backend for office attendance with:
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+- Admin-first employee directory, editing, and onboarding
+- Front-camera kiosk mode using Vision Camera
+- Automatic recognition from enrolled face features with manual fallback
+- Local offline queue persisted in MMKV with in-memory fallback in tests
+- Employee onboarding, profile editing, and attendance sync against a deployable backend
+- Backend persistence via local JSON by default, with optional MongoDB and Cloudflare R2
 
-## Step 1: Start Metro
+## What is implemented
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### App
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- App opens into an employee directory with editable profiles
+- Employee onboarding and profile edit flow with enrollment photo capture
+- Kiosk mode switch for automatic recognition and attendance
+- Manual attendance flow with employee search and proof photo capture
+- Local persistence for employees, queue, recent attendance, and API base URL
+- Sync to backend for employees and attendance
+- Local face-feature extraction from onboarding photos and live kiosk detections
+- Local cosine matching utilities for automatic recognition
+
+### Backend
+
+- `GET /health`
+- `GET /employees`
+- `GET /employees/embeddings`
+- `POST /employees`
+- `PUT /employees/:id`
+- `GET /attendance`
+- `POST /attendance`
+- Local file storage for uploads by default
+- Optional MongoDB store when `MONGODB_URI` is set
+- Optional Cloudflare R2 object storage when `R2_*` vars are set
+
+## Run locally
+
+### Install
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+npm install
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+### Start backend
 
 ```sh
-# Using npm
+cp backend/.env.example .env
+npm run server
+```
+
+### Start React Native
+
+```sh
+npm run start
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+By default the tablet app points to:
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+- Android emulator: `http://10.0.2.2:4000`
+- iOS simulator: `http://localhost:4000`
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+You can override the backend URL from the in-app Settings panel.
+
+## Verification
 
 ```sh
-bundle install
+npm run typecheck
+npm run lint
+npm test
 ```
 
-Then, and every time you update your native dependencies, run:
+## Backend environment
+
+Copy [backend/.env.example](/Users/pranav/Documents/GitHub/native/backend/.env.example) and set:
+
+- `PORT`
+- `PUBLIC_BASE_URL`
+- `DATA_FILE`
+- `UPLOAD_DIR`
+
+Optional:
+
+- `MONGODB_URI`
+- `MONGODB_DB_NAME`
+- `R2_ENDPOINT`
+- `R2_BUCKET`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_PUBLIC_BASE_URL`
+
+## Android release notes
+
+Release signing can be provided through environment variables consumed by [android/app/build.gradle](/Users/pranav/Documents/GitHub/native/android/app/build.gradle):
+
+- `ANDROID_KEYSTORE_FILE`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Then build a release with your normal Gradle flow, for example:
 
 ```sh
-bundle exec pod install
+cd android
+./gradlew assembleRelease
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## What still requires device validation
 
-```sh
-# Using npm
-npm run ios
+These are outside what can be proven in this workspace because Java/Android SDK/device access is not installed here:
 
-# OR using Yarn
-yarn ios
-```
+- Native Android/iOS build success with Vision Camera and MMKV linked
+- Real tablet camera permissions and preview behavior
+- Face detection and automatic recognition performance on the target hardware
+- Release APK/AAB generation and signing verification
+- Lock task / device-owner kiosk provisioning on the physical tablet
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+The codebase is now substantially closer to deployment, but final production readiness still depends on running those device-side checks.
