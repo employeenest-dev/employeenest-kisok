@@ -37,14 +37,14 @@ interface KioskCameraProps {
   onFacesDetected: (faces: DetectedFace[]) => void;
 }
 
-function useOptionalFrontCameraDevice() {
+function useOptionalCameraDevice(position: 'front' | 'back') {
   const visionCamera = getVisionCameraModule();
 
   if (!visionCamera) {
     return null;
   }
 
-  return visionCamera.useCameraDevice('front');
+  return visionCamera.useCameraDevice(position);
 }
 
 export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
@@ -52,7 +52,8 @@ export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
     const cameraRef = useRef<any>(null);
     const [permissionStatus, setPermissionStatus] =
       useState<NativeCameraPermissionStatus>('not-determined');
-    const device = useOptionalFrontCameraDevice();
+    const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
+    const device = useOptionalCameraDevice(cameraPosition);
     const visionCamera = getVisionCameraModule();
     const faceDetector = getFaceDetectorModule();
 
@@ -119,9 +120,9 @@ export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
     if (!device) {
       return (
         <View style={styles.unavailableCard}>
-          <Text style={styles.unavailableTitle}>No front camera found</Text>
+          <Text style={styles.unavailableTitle}>No camera found</Text>
           <Text style={styles.unavailableCopy}>
-            Connect a tablet with a working front camera to continue.
+            Connect a tablet with a working camera to continue.
           </Text>
         </View>
       );
@@ -143,6 +144,14 @@ export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
           style={styles.camera}
         />
         <View style={styles.overlay}>
+          <Pressable
+            onPress={() => setCameraPosition(p => (p === 'front' ? 'back' : 'front'))}
+            style={({ pressed }) => [
+              styles.flipButton,
+              pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] },
+            ]}>
+            <Text style={styles.flipButtonText}>Flip camera</Text>
+          </Pressable>
           <View style={styles.reticle} />
           <Text style={styles.overlayText}>Keep one face in frame</Text>
         </View>
@@ -160,6 +169,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+  },
+  flipButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(12, 37, 49, 0.8)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  flipButtonText: {
+    color: '#d7f5ef',
+    fontSize: 14,
+    fontWeight: '700',
   },
   overlayText: {
     color: '#d7f5ef',

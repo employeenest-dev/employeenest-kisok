@@ -2,13 +2,19 @@ import React from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AttendanceKioskApp } from './src/app/AttendanceKioskApp';
+import { NavigationContainer } from '@react-navigation/native';
+import { AttendanceProvider } from './src/features/attendance/context/AttendanceContext';
+import { AppNavigator } from './src/navigation/AppNavigator';
 
 function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor="#04131a" />
-      <AttendanceKioskApp />
+      <AttendanceProvider>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </AttendanceProvider>
     </SafeAreaProvider>
   );
 }
