@@ -7,10 +7,10 @@ import {
   PendingAttendanceRecord,
 } from '../types';
 
-function createHttpClient(baseUrl: string) {
+function createHttpClient(baseUrl: string, timeout = 10_000) {
   return axios.create({
     baseURL: baseUrl.replace(/\/$/, ''),
-    timeout: 10_000,
+    timeout,
   });
 }
 
@@ -34,12 +34,12 @@ export async function fetchAttendance(baseUrl: string, limit = 12): Promise<Atte
   return (response.data.attendance ?? []) as AttendanceRecord[];
 }
 
-export async function fetchHealth(baseUrl: string): Promise<{
+export async function fetchHealth(baseUrl: string, timeoutMs = 10_000): Promise<{
   databaseMode: string;
   status: string;
   storageMode: string;
 }> {
-  const response = await createHttpClient(baseUrl).get('/health');
+  const response = await createHttpClient(baseUrl, timeoutMs).get('/health');
   return response.data as {
     databaseMode: string;
     status: string;

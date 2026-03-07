@@ -41,21 +41,12 @@ export function evaluateRecognition(args: {
     return {
       availability: 'ready',
       faceCount: 1,
-      message: 'No active employee embeddings are available locally.',
+      message: 'No employee embeddings are available locally.',
       outcome: 'MANUAL',
     };
   }
 
   const outcome = getMatchOutcome(bestMatch.similarity, args.thresholds);
-
-  if (bestMatch.similarity < 0.1) {
-    return {
-      availability: 'ready',
-      faceCount: 1,
-      message: 'Unknown face detected. No registered employee matches this camera view.',
-      outcome: 'MANUAL',
-    };
-  }
 
   return {
     availability: 'ready',
@@ -63,7 +54,7 @@ export function evaluateRecognition(args: {
     faceCount: 1,
     matchedEmployeeId: bestMatch.employee.id,
     matchedEmployeeName: bestMatch.employee.name,
-    message: `Best match ${bestMatch.employee.name} at ${bestMatch.similarity.toFixed(2)}`,
+    message: `Best match ${bestMatch.employee.name} at ${bestMatch.similarity.toFixed(2)}.`,
     outcome,
   };
 }

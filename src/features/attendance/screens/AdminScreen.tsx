@@ -11,13 +11,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { APP_NAME, DEVICE_ID } from '../../../config/mvp';
+import { ApiSettingsPanel } from '../components/ApiSettingsPanel';
 import { KioskCamera, KioskCameraHandle } from '../components/KioskCamera';
 import { ModeSwitch } from '../components/ModeSwitch';
 import { buildSyncLabel, formatTimestamp, resolveAssetUrl } from '../services/attendance';
 import {
   ApiSettings,
+  ApiRuntimePreset,
   AppMode,
   AttendanceRecord,
+  BackendPingState,
   Employee,
   EmployeeEditorMode,
   OnboardingDraft,
@@ -27,6 +30,7 @@ import {
 interface AdminScreenProps {
   apiSettings: ApiSettings;
   appMode: AppMode;
+  backendPingState: BackendPingState;
   cameraRef: React.RefObject<KioskCameraHandle | null>;
   directoryEmployees: Employee[];
   employeeDraft: OnboardingDraft;
@@ -39,8 +43,10 @@ interface AdminScreenProps {
   onCancelEmployeeEditor: () => void;
   onEmployeeDraftChange: (draft: OnboardingDraft) => void;
   onEmployeeQueryChange: (value: string) => void;
+  onPingBackend: () => Promise<void>;
   onSaveApiSettings: () => void;
   onSaveEmployee: () => Promise<void>;
+  onSelectApiRuntimePreset: (preset: ApiRuntimePreset) => void;
   onSelectEmployee: (employeeId: string) => void;
   onSetApiUrlDraft: (value: string) => void;
   onSwitchMode: (mode: AppMode) => void;
@@ -346,22 +352,15 @@ export function AdminScreen(props: AdminScreenProps) {
           </View>
         </View>
 
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Backend</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            onChangeText={props.onSetApiUrlDraft}
-            placeholder="https://attendance.example.com"
-            placeholderTextColor="#6f8f95"
-            style={styles.input}
-            value={props.apiSettings.draftBaseUrl}
-          />
-          <View style={styles.actionRow}>
-            <ActionButton label="Save API URL" onPress={props.onSaveApiSettings} />
-          </View>
-        </View>
+        <ApiSettingsPanel
+          apiSettings={props.apiSettings}
+          backendPingState={props.backendPingState}
+          onPingBackend={props.onPingBackend}
+          onSaveApiSettings={props.onSaveApiSettings}
+          onSelectApiRuntimePreset={props.onSelectApiRuntimePreset}
+          onSetApiUrlDraft={props.onSetApiUrlDraft}
+          title="Backend"
+        />
       </ScrollView>
     </SafeAreaView>
   );

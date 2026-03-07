@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Image,
   Pressable,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { APP_NAME, DEVICE_ID, OFFICE_NAME } from '../../../config/mvp';
+import { ApiSettingsPanel } from '../components/ApiSettingsPanel';
 import { KioskCamera, KioskCameraHandle } from '../components/KioskCamera';
 import { ModeSwitch } from '../components/ModeSwitch';
 import {
@@ -22,8 +23,10 @@ import {
 import {
   ActivePanel,
   ApiSettings,
+  ApiRuntimePreset,
   AppMode,
   AttendanceRecord,
+  BackendPingState,
   Employee,
   ManualDraft,
   PendingAttendanceRecord,
@@ -35,6 +38,7 @@ interface KioskScreenProps {
   activePanel: ActivePanel;
   apiSettings: ApiSettings;
   appMode: AppMode;
+  backendPingState: BackendPingState;
   cameraRef: React.RefObject<KioskCameraHandle | null>;
   filteredEmployees: Employee[];
   initialized: boolean;
@@ -46,8 +50,10 @@ interface KioskScreenProps {
   onFacesDetected: (faces: import('../native/camera').DetectedFace[]) => void;
   onManualDraftChange: (draft: ManualDraft) => void;
   onOpenPanel: (panel: Exclude<ActivePanel, 'none'>) => void;
+  onPingBackend: () => Promise<void>;
   onSaveApiSettings: () => void;
   onSaveManualAttendance: () => Promise<void>;
+  onSelectApiRuntimePreset: (preset: ApiRuntimePreset) => void;
   onSetApiUrlDraft: (value: string) => void;
   onSwitchMode: (mode: AppMode) => void;
   onSyncNow: () => Promise<void>;
@@ -99,27 +105,6 @@ function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }
 }
 
 export function KioskScreen(props: KioskScreenProps) {
-  const [pingStatus, setPingStatus] = useState<string | null>(null);
-  const [isPinging, setIsPinging] = useState(false);
-
-  const testPing = async () => {
-    setIsPinging(true);
-    setPingStatus('Pinging...');
-    try {
-      const url = `${props.apiSettings.draftBaseUrl.replace(/\/$/, '')}/health`;
-      const response = await fetch(url);
-      if (response.ok) {
-        setPingStatus('Success! Backend is reachable.');
-      } else {
-        setPingStatus(`Error: Server returned ${response.status}`);
-      }
-    } catch (e) {
-      setPingStatus('Failed: Could not reach the server.');
-    } finally {
-      setIsPinging(false);
-    }
-  };
-
   if (!props.initialized) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -346,31 +331,16 @@ export function KioskScreen(props: KioskScreenProps) {
         ) : null}
 
         {props.activePanel === 'settings' ? (
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Backend settings</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              onChangeText={props.onSetApiUrlDraft}
-              placeholder="https://attendance.example.com"
-              placeholderTextColor="#6f8f95"
-              style={styles.input}
-              value={props.apiSettings.draftBaseUrl}
-            />
-            <View style={styles.actionRow}>
-              <ActionButton label="Save API URL" onPress={props.onSaveApiSettings} />
-              <ActionButton
-                kind="secondary"
-                label={isPinging ? 'Pinging...' : 'Test Connection'}
-                onPress={testPing}
-              />
-              <ActionButton kind="secondary" label="Close" onPress={props.onClosePanel} />
-            </View>
-            {pingStatus ? (
-              <Text style={styles.pingStatus}>{pingStatus}</Text>
-            ) : null}
-          </View>
+          <ApiSettingsPanel
+            apiSettings={props.apiSettings}
+            backendPingState={props.backendPingState}
+            onClose={props.onClosePanel}
+            onPingBackend={props.onPingBackend}
+            onSaveApiSettings={props.onSaveApiSettings}
+            onSelectApiRuntimePreset={props.onSelectApiRuntimePreset}
+            onSetApiUrlDraft={props.onSetApiUrlDraft}
+            title="Backend settings"
+          />
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -619,12 +589,6 @@ const styles = StyleSheet.create({
     color: '#f2fbfa',
     fontSize: 20,
     fontWeight: '800',
-  },
-  pingStatus: {
-    color: '#7dd3c7',
-    fontSize: 15,
-    marginTop: 8,
-    fontWeight: '700',
   },
   profileImage: {
     borderRadius: 24,

@@ -6,10 +6,18 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Platform } from 'react-native';
 
 import {
+  ANDROID_EMULATOR_API_BASE_URL,
+  ANDROID_USB_API_BASE_URL,
+  API_RUNTIME_OPTIONS,
   DEFAULT_API_BASE_URL,
   DEVICE_ID,
+  getApiBaseUrlForRuntimePreset,
+  inferApiRuntimePreset,
+  IOS_SIMULATOR_API_BASE_URL,
+  PHYSICAL_DEVICE_API_BASE_URL,
   RECOGNITION_THRESHOLDS,
 } from '../../../config/mvp';
 import {
@@ -17,9 +25,9 @@ import {
   createEmployee,
   fetchAttendance,
   fetchEmployees,
+  fetchHealth,
   updateEmployee,
 } from '../api/client';
-import { mockEmployees } from '../data/mockEmployees';
 import { detectFacesInImage, DetectedFace } from '../native/camera';
 import { buildFaceEmbedding } from '../services/faceEmbedding';
 import { readStoredJson, readStoredString, writeStoredJson, writeStoredString } from '../services/localStore';
@@ -28,8 +36,10 @@ import { evaluateRecognition } from '../services/recognition';
 import {
   ActivePanel,
   ApiSettings,
+  ApiRuntimePreset,
   AppMode,
   AttendanceRecord,
+  BackendPingState,
   Employee,
   EmployeeEditorMode,
   ManualDraft,
@@ -48,6 +58,10 @@ const STORAGE_KEYS = {
   pendingAttendance: 'attendance.pending-attendance',
   recentAttendance: 'attendance.recent-attendance',
 } as const;
+
+const LEGACY_MOCK_EMPLOYEE_IDS = new Set(['emp_001', 'emp_002', 'emp_003']);
+const API_RESOLUTION_CACHE_TTL_MS = 30_000;
+const API_RESOLUTION_TIMEOUT_MS = 2_500;
 
 const runtimeProcess = (
   globalThis as {
@@ -82,6 +96,104 @@ function getErrorMessage(error: unknown): string {
   return 'Unexpected error.';
 }
 
+function isNetworkFailureMessage(message: string): boolean {
+  return /failed to fetch|load failed|network request failed|network error/i.test(message);
+}
+
+function normalizeApiBaseUrl(value: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `http://${trimmed}`;
+}
+
+function getNetworkHint(baseUrl: string): string | undefined {
+  try {
+    const url = new URL(normalizeApiBaseUrl(baseUrl));
+    const isLocalHost =
+      url.hostname === 'localhost' ||
+      url.hostname === '127.0.0.1' ||
+      url.hostname === '::1';
+
+    if (Platform.OS === 'android') {
+      if (url.hostname === '10.0.2.2') {
+        return 'For a physical Android device, use your computer LAN IP, for example http://192.168.1.20:4000.';
+      }
+
+      if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') {
+        return 'Use this only on an Android phone connected by USB. First run adb reverse tcp:4000 tcp:4000.';
+      }
+
+      if (isLocalHost) {
+        return 'Use http://10.0.2.2:4000 on the Android emulator, or your computer LAN IP on a physical Android device.';
+      }
+
+      if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(url.hostname)) {
+        return 'If your phone cannot reach your computer over Wi-Fi, connect it by USB, run adb reverse tcp:4000 tcp:4000, then select the Android USB runtime preset.';
+      }
+    }
+
+    if (Platform.OS === 'ios' && url.hostname === '10.0.2.2') {
+      return 'Use http://localhost:4000 on the iOS simulator, or your computer LAN IP on a physical iPhone or iPad.';
+    }
+
+    if (isLocalHost) {
+      return 'If this app is running on a physical device, replace localhost with your computer LAN IP.';
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function formatApiError(prefix: string, error: unknown, baseUrl: string): string {
+  const message = getErrorMessage(error);
+
+  if (!isNetworkFailureMessage(message)) {
+    return `${prefix}: ${message}`;
+  }
+
+  const target = normalizeApiBaseUrl(baseUrl);
+  const hint = getNetworkHint(baseUrl);
+  return `${prefix}: Could not reach ${target || 'the backend URL'}.${hint ? ` ${hint}` : ''}`;
+}
+
+function buildApiBaseUrlCandidates(preferredBaseUrl: string): string[] {
+  const normalized = normalizeApiBaseUrl(preferredBaseUrl);
+  const candidates = [normalized];
+
+  if (Platform.OS === 'android') {
+    candidates.push(ANDROID_USB_API_BASE_URL);
+    candidates.push(ANDROID_EMULATOR_API_BASE_URL);
+
+    if (PHYSICAL_DEVICE_API_BASE_URL) {
+      candidates.push(PHYSICAL_DEVICE_API_BASE_URL);
+    }
+  }
+
+  if (Platform.OS === 'ios') {
+    candidates.push(IOS_SIMULATOR_API_BASE_URL);
+
+    if (PHYSICAL_DEVICE_API_BASE_URL) {
+      candidates.push(PHYSICAL_DEVICE_API_BASE_URL);
+    }
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function stripLegacyMockEmployees(employees: Employee[]): Employee[] {
+  return employees.filter(employee => !LEGACY_MOCK_EMPLOYEE_IDS.has(employee.id));
+}
+
 function addEmployeeNames(records: AttendanceRecord[], employees: Employee[]): AttendanceRecord[] {
   return records.map(record => ({
     ...record,
@@ -107,7 +219,14 @@ export function useAttendanceKiosk() {
   const [activePanel, setActivePanel] = useState<ActivePanel>('none');
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const [apiUrlDraft, setApiUrlDraft] = useState(DEFAULT_API_BASE_URL);
+  const [apiRuntimePreset, setApiRuntimePreset] = useState<ApiRuntimePreset>(
+    inferApiRuntimePreset(DEFAULT_API_BASE_URL),
+  );
   const [appMode, setAppMode] = useState<AppMode>('admin');
+  const [backendPingState, setBackendPingState] = useState<BackendPingState>({
+    status: 'idle',
+    testing: false,
+  });
   const [employeeEditorMode, setEmployeeEditorMode] =
     useState<EmployeeEditorMode>('view');
   const [employeeQuery, setEmployeeQuery] = useState('');
@@ -132,6 +251,11 @@ export function useAttendanceKiosk() {
   const [syncing, setSyncing] = useState(false);
 
   const autoAttendanceRef = useRef<{ employeeId: string; timestamp: number } | null>(null);
+  const apiResolutionRef = useRef<{
+    requestedBaseUrl: string;
+    resolvedAt: number;
+    resolvedBaseUrl: string;
+  } | null>(null);
   const deferredDirectoryQuery = useDeferredValue(employeeQuery);
   const deferredManualQuery = useDeferredValue(manualDraft.employeeQuery);
   const employeesWithAttendance = applyLastAttendanceTypes(
@@ -154,7 +278,9 @@ export function useAttendanceKiosk() {
     : undefined;
 
   useEffect(() => {
-    const storedEmployees = readStoredJson<Employee[]>(STORAGE_KEYS.employees, mockEmployees);
+    const storedEmployees = stripLegacyMockEmployees(
+      readStoredJson<Employee[]>(STORAGE_KEYS.employees, []),
+    );
     const storedPending = readStoredJson<PendingAttendanceRecord[]>(
       STORAGE_KEYS.pendingAttendance,
       [],
@@ -177,6 +303,7 @@ export function useAttendanceKiosk() {
     setRecentAttendance(storedRecent);
     setApiBaseUrl(storedApiUrl);
     setApiUrlDraft(storedApiUrl);
+    setApiRuntimePreset(inferApiRuntimePreset(storedApiUrl));
     setLastEmployeesSyncAt(storedEmployeesSyncAt || undefined);
     setLastAttendanceSyncAt(storedAttendanceSyncAt || undefined);
     setSelectedEmployeeId(nextEmployees[0]?.id);
@@ -210,12 +337,10 @@ export function useAttendanceKiosk() {
     }
   }, [employeesWithAttendance, selectedEmployeeId]);
 
-  async function syncEmployees() {
-    const remoteEmployees = await fetchEmployees(apiBaseUrl);
+  async function syncEmployees(baseUrl = apiBaseUrl) {
+    const remoteEmployees = await fetchEmployees(baseUrl);
     const syncedAt = new Date().toISOString();
-    const nextEmployees = sortEmployees(
-      remoteEmployees.length > 0 ? remoteEmployees : mockEmployees,
-    );
+    const nextEmployees = sortEmployees(stripLegacyMockEmployees(remoteEmployees));
 
     startTransition(() => {
       setEmployees(nextEmployees);
@@ -226,8 +351,8 @@ export function useAttendanceKiosk() {
     return nextEmployees;
   }
 
-  async function syncAttendanceRecords(sourceEmployees = employees) {
-    const remoteAttendance = await fetchAttendance(apiBaseUrl);
+  async function syncAttendanceRecords(sourceEmployees = employees, baseUrl = apiBaseUrl) {
+    const remoteAttendance = await fetchAttendance(baseUrl);
     const syncedAt = new Date().toISOString();
 
     startTransition(() => {
@@ -236,7 +361,7 @@ export function useAttendanceKiosk() {
     });
   }
 
-  async function flushPendingAttendance() {
+  async function flushPendingAttendance(baseUrl = apiBaseUrl) {
     if (pendingAttendance.length === 0) {
       return;
     }
@@ -244,7 +369,7 @@ export function useAttendanceKiosk() {
     let remaining = [...pendingAttendance];
 
     for (const record of pendingAttendance) {
-      await createAttendance(apiBaseUrl, record);
+      await createAttendance(baseUrl, record);
       remaining = remaining.filter(item => item.localId !== record.localId);
     }
 
@@ -258,12 +383,15 @@ export function useAttendanceKiosk() {
     setSyncing(true);
 
     try {
-      const syncedEmployees = await syncEmployees();
-      await flushPendingAttendance();
-      await syncAttendanceRecords(syncedEmployees);
+      const reachableApiBaseUrl = await ensureReachableApiBaseUrl(apiBaseUrl, {
+        quiet: true,
+      });
+      const syncedEmployees = await syncEmployees(reachableApiBaseUrl);
+      await flushPendingAttendance(reachableApiBaseUrl);
+      await syncAttendanceRecords(syncedEmployees, reachableApiBaseUrl);
       setLastError(undefined);
     } catch (error) {
-      setLastError(`Sync failed: ${getErrorMessage(error)}`);
+      setLastError(formatApiError('Sync failed', error, apiBaseUrl));
     } finally {
       setSyncing(false);
     }
@@ -279,7 +407,7 @@ export function useAttendanceKiosk() {
     }
 
     runAutoSync().catch(error => {
-      setLastError(`Sync failed: ${getErrorMessage(error)}`);
+      setLastError(formatApiError('Sync failed', error, apiBaseUrl));
     });
   }, [apiBaseUrl, initialized]);
 
@@ -292,6 +420,124 @@ export function useAttendanceKiosk() {
 
   function resetEmployeeDraft() {
     setEmployeeDraft(EMPTY_EMPLOYEE_DRAFT);
+  }
+
+  function applyApiBaseUrl(nextBaseUrl: string, options?: { updateDraft?: boolean }) {
+    setApiBaseUrl(nextBaseUrl);
+    setApiRuntimePreset(inferApiRuntimePreset(nextBaseUrl));
+
+    if (options?.updateDraft !== false) {
+      setApiUrlDraft(nextBaseUrl);
+    }
+  }
+
+  async function resolveReachableApiBaseUrl(
+    preferredBaseUrl: string,
+    timeoutMs = API_RESOLUTION_TIMEOUT_MS,
+  ): Promise<{
+    baseUrl: string;
+    health: Awaited<ReturnType<typeof fetchHealth>>;
+    switched: boolean;
+  }> {
+    const normalized = normalizeApiBaseUrl(preferredBaseUrl);
+
+    if (!normalized) {
+      throw new Error('API base URL cannot be empty.');
+    }
+
+    const candidates = buildApiBaseUrlCandidates(normalized);
+    let lastResolutionError: unknown = new Error('No backend URL candidates were generated.');
+
+    for (const candidate of candidates) {
+      try {
+        const health = await fetchHealth(candidate, timeoutMs);
+        return {
+          baseUrl: candidate,
+          health,
+          switched: candidate !== normalized,
+        };
+      } catch (error) {
+        lastResolutionError = error;
+      }
+    }
+
+    throw lastResolutionError;
+  }
+
+  async function ensureReachableApiBaseUrl(
+    preferredBaseUrl: string,
+    options?: { quiet?: boolean; updateDraft?: boolean },
+  ): Promise<string> {
+    const normalized = normalizeApiBaseUrl(preferredBaseUrl);
+
+    if (!normalized) {
+      throw new Error('API base URL cannot be empty.');
+    }
+
+    const cachedResolution = apiResolutionRef.current;
+
+    if (
+      cachedResolution &&
+      cachedResolution.requestedBaseUrl === normalized &&
+      Date.now() - cachedResolution.resolvedAt < API_RESOLUTION_CACHE_TTL_MS
+    ) {
+      if (cachedResolution.resolvedBaseUrl !== apiBaseUrl) {
+        applyApiBaseUrl(cachedResolution.resolvedBaseUrl, {
+          updateDraft: options?.updateDraft,
+        });
+      }
+
+      return cachedResolution.resolvedBaseUrl;
+    }
+
+    const resolution = await resolveReachableApiBaseUrl(normalized);
+
+    apiResolutionRef.current = {
+      requestedBaseUrl: normalized,
+      resolvedAt: Date.now(),
+      resolvedBaseUrl: resolution.baseUrl,
+    };
+
+    if (resolution.baseUrl !== apiBaseUrl || options?.updateDraft !== false) {
+      applyApiBaseUrl(resolution.baseUrl, {
+        updateDraft: options?.updateDraft,
+      });
+    }
+
+    if (resolution.switched && !options?.quiet) {
+      setBackendPingState({
+        message: `Requested URL was unreachable. Using ${resolution.baseUrl} instead.`,
+        status: 'success',
+        testing: false,
+      });
+    }
+
+    return resolution.baseUrl;
+  }
+
+  function updateApiUrlDraft(value: string) {
+    setApiUrlDraft(value);
+    setApiRuntimePreset(inferApiRuntimePreset(value));
+    apiResolutionRef.current = null;
+    setBackendPingState({
+      status: 'idle',
+      testing: false,
+    });
+  }
+
+  function selectApiRuntimePreset(preset: ApiRuntimePreset) {
+    setApiRuntimePreset(preset);
+    apiResolutionRef.current = null;
+    setBackendPingState({
+      status: 'idle',
+      testing: false,
+    });
+
+    const presetUrl = getApiBaseUrlForRuntimePreset(preset);
+
+    if (presetUrl) {
+      setApiUrlDraft(presetUrl);
+    }
   }
 
   function beginCreateEmployee() {
@@ -322,6 +568,53 @@ export function useAttendanceKiosk() {
     setSelectedEmployeeId(previous => previous ?? employeesWithAttendance[0]?.id);
   }
 
+  async function pingBackend() {
+    const targetUrl = normalizeApiBaseUrl(apiUrlDraft);
+
+    if (!targetUrl) {
+      setBackendPingState({
+        message: 'Enter an API base URL before testing the backend.',
+        status: 'error',
+        testing: false,
+      });
+      return;
+    }
+
+    setBackendPingState({
+      message: `Testing ${targetUrl}...`,
+      status: 'idle',
+      testing: true,
+    });
+
+    try {
+      const resolution = await resolveReachableApiBaseUrl(targetUrl);
+
+      apiResolutionRef.current = {
+        requestedBaseUrl: targetUrl,
+        resolvedAt: Date.now(),
+        resolvedBaseUrl: resolution.baseUrl,
+      };
+
+      if (resolution.switched) {
+        applyApiBaseUrl(resolution.baseUrl);
+      }
+
+      setBackendPingState({
+        message: resolution.switched
+          ? `Requested URL was unreachable. Connected to the backend at ${resolution.baseUrl} · status ${resolution.health.status} · db ${resolution.health.databaseMode} · storage ${resolution.health.storageMode}`
+          : `Backend reachable at ${resolution.baseUrl} · status ${resolution.health.status} · db ${resolution.health.databaseMode} · storage ${resolution.health.storageMode}`,
+        status: 'success',
+        testing: false,
+      });
+    } catch (error) {
+      setBackendPingState({
+        message: formatApiError('Backend ping failed', error, targetUrl),
+        status: 'error',
+        testing: false,
+      });
+    }
+  }
+
   async function saveAttendanceRecord(
     record: PendingAttendanceRecord,
     employeeName: string,
@@ -331,7 +624,10 @@ export function useAttendanceKiosk() {
     });
 
     try {
-      const saved = await createAttendance(apiBaseUrl, record);
+      const reachableApiBaseUrl = await ensureReachableApiBaseUrl(apiBaseUrl, {
+        quiet: true,
+      });
+      const saved = await createAttendance(reachableApiBaseUrl, record);
 
       startTransition(() => {
         setPendingAttendance(previous =>
@@ -348,7 +644,7 @@ export function useAttendanceKiosk() {
         setLastAttendanceSyncAt(new Date().toISOString());
       });
     } catch (error) {
-      setLastError(`Attendance queued offline: ${getErrorMessage(error)}`);
+      setLastError(formatApiError('Attendance queued offline', error, apiBaseUrl));
     }
   }
 
@@ -401,7 +697,7 @@ export function useAttendanceKiosk() {
 
       if (employee) {
         submitFaceAttendance(employee, nextStatus.confidence).catch(error => {
-          setLastError(`Automatic attendance failed: ${getErrorMessage(error)}`);
+          setLastError(formatApiError('Automatic attendance failed', error, apiBaseUrl));
         });
       }
     }
@@ -508,12 +804,15 @@ export function useAttendanceKiosk() {
 
     try {
       setSyncing(true);
-      console.log('[submitEmployeeDraft] making API request... baseUrl:', apiBaseUrl);
+      const reachableApiBaseUrl = await ensureReachableApiBaseUrl(apiBaseUrl, {
+        quiet: true,
+      });
+      console.log('[submitEmployeeDraft] making API request... baseUrl:', reachableApiBaseUrl);
 
       const saved =
         employeeEditorMode === 'edit'
-          ? await updateEmployee(apiBaseUrl, employeeDraft)
-          : await createEmployee(apiBaseUrl, employeeDraft);
+          ? await updateEmployee(reachableApiBaseUrl, employeeDraft)
+          : await createEmployee(reachableApiBaseUrl, employeeDraft);
 
       console.log('[submitEmployeeDraft] API returned:', saved);
 
@@ -537,22 +836,50 @@ export function useAttendanceKiosk() {
       setLastError(undefined);
     } catch (error) {
       console.error('[submitEmployeeDraft] API error:', error);
-      setLastError(`Employee save failed: ${getErrorMessage(error)}`);
+      setLastError(formatApiError('Employee save failed', error, apiBaseUrl));
     } finally {
       setSyncing(false);
     }
   }
 
-  function saveApiSettings() {
-    const nextBaseUrl = apiUrlDraft.trim();
+  async function saveApiSettings() {
+    const nextBaseUrl = normalizeApiBaseUrl(apiUrlDraft);
 
     if (!nextBaseUrl) {
       setLastError('API base URL cannot be empty.');
       return;
     }
 
-    setApiBaseUrl(nextBaseUrl);
-    setLastError(undefined);
+    setBackendPingState({
+      message: `Connecting to ${nextBaseUrl}...`,
+      status: 'idle',
+      testing: true,
+    });
+
+    try {
+      const resolution = await resolveReachableApiBaseUrl(nextBaseUrl);
+      apiResolutionRef.current = {
+        requestedBaseUrl: nextBaseUrl,
+        resolvedAt: Date.now(),
+        resolvedBaseUrl: resolution.baseUrl,
+      };
+      applyApiBaseUrl(resolution.baseUrl);
+      setBackendPingState({
+        message: resolution.switched
+          ? `Requested URL was unreachable. Saved ${resolution.baseUrl} as the working backend.`
+          : `Saved ${resolution.baseUrl} as the backend.`,
+        status: 'success',
+        testing: false,
+      });
+      setLastError(undefined);
+    } catch (error) {
+      setBackendPingState({
+        message: formatApiError('Backend save failed', error, nextBaseUrl),
+        status: 'error',
+        testing: false,
+      });
+      setLastError(formatApiError('Backend save failed', error, nextBaseUrl));
+    }
   }
 
   return {
@@ -560,6 +887,8 @@ export function useAttendanceKiosk() {
     apiSettings: {
       baseUrl: apiBaseUrl,
       draftBaseUrl: apiUrlDraft,
+      runtimeOptions: API_RUNTIME_OPTIONS,
+      runtimePreset: apiRuntimePreset,
     } satisfies ApiSettings,
     appMode,
     directoryEmployees,
@@ -570,6 +899,7 @@ export function useAttendanceKiosk() {
     filteredEmployees,
     initialized,
     lastError,
+    backendPingState,
     manualDraft,
     matchedEmployee,
     pendingAttendance,
@@ -578,7 +908,7 @@ export function useAttendanceKiosk() {
     selectedEmployee,
     selectedEmployeeId,
     setActivePanel,
-    setApiUrlDraft,
+    setApiUrlDraft: updateApiUrlDraft,
     setAppMode,
     setEmployeeDraft,
     setEmployeeQuery,
@@ -587,10 +917,12 @@ export function useAttendanceKiosk() {
     beginCreateEmployee,
     beginEditEmployee,
     cancelEmployeeEditor,
+    pingBackend,
     applyEmployeePhoto,
     applyManualPhoto,
     handleFacesDetected,
     saveApiSettings,
+    selectApiRuntimePreset,
     selectEmployee,
     submitEmployeeDraft,
     submitManualAttendance,

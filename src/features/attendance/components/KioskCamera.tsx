@@ -37,14 +37,14 @@ interface KioskCameraProps {
   onFacesDetected: (faces: DetectedFace[]) => void;
 }
 
-function useOptionalCameraDevice(position: 'front' | 'back') {
+function useOptionalFrontCameraDevice() {
   const visionCamera = getVisionCameraModule();
 
   if (!visionCamera) {
     return null;
   }
 
-  return visionCamera.useCameraDevice(position);
+  return visionCamera.useCameraDevice('front');
 }
 
 export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
@@ -52,8 +52,7 @@ export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
     const cameraRef = useRef<any>(null);
     const [permissionStatus, setPermissionStatus] =
       useState<NativeCameraPermissionStatus>('not-determined');
-    const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
-    const device = useOptionalCameraDevice(cameraPosition);
+    const device = useOptionalFrontCameraDevice();
     const visionCamera = getVisionCameraModule();
     const faceDetector = getFaceDetectorModule();
 
@@ -120,9 +119,9 @@ export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
     if (!device) {
       return (
         <View style={styles.unavailableCard}>
-          <Text style={styles.unavailableTitle}>No {cameraPosition} camera found</Text>
+          <Text style={styles.unavailableTitle}>No front camera found</Text>
           <Text style={styles.unavailableCopy}>
-            Connect a device with a working {cameraPosition} camera to continue.
+            Connect a tablet with a working front camera to continue.
           </Text>
         </View>
       );
@@ -146,14 +145,6 @@ export const KioskCamera = forwardRef<KioskCameraHandle, KioskCameraProps>(
         <View style={styles.overlay}>
           <View style={styles.reticle} />
           <Text style={styles.overlayText}>Keep one face in frame</Text>
-          <Pressable
-            onPress={() => setCameraPosition(prev => prev === 'front' ? 'back' : 'front')}
-            style={({ pressed }) => [
-              styles.switchButton,
-              pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] },
-            ]}>
-            <Text style={styles.switchButtonText}>Switch to {cameraPosition === 'front' ? 'Back' : 'Front'} Camera</Text>
-          </Pressable>
         </View>
       </View>
     );
@@ -173,20 +164,6 @@ const styles = StyleSheet.create({
   overlayText: {
     color: '#d7f5ef',
     fontSize: 15,
-    fontWeight: '700',
-  },
-  switchButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginTop: 10,
-    borderColor: '#7dd3c7',
-    borderWidth: 1,
-  },
-  switchButtonText: {
-    color: '#d7f5ef',
-    fontSize: 14,
     fontWeight: '700',
   },
   permissionButton: {

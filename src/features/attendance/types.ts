@@ -4,6 +4,12 @@ export type MatchOutcome = 'AUTO' | 'REVIEW' | 'MANUAL' | 'UNAVAILABLE';
 export type ActivePanel = 'manual' | 'none' | 'settings';
 export type AppMode = 'admin' | 'kiosk';
 export type EmployeeEditorMode = 'create' | 'edit' | 'view';
+export type ApiRuntimePreset =
+  | 'android-emulator'
+  | 'android-usb'
+  | 'ios-simulator'
+  | 'physical-device'
+  | 'custom';
 
 export interface RecognitionThresholds {
   autoMatch: number;
@@ -83,6 +89,21 @@ export interface OnboardingDraft {
 export interface ApiSettings {
   baseUrl: string;
   draftBaseUrl: string;
+  runtimeOptions: ApiRuntimeOption[];
+  runtimePreset: ApiRuntimePreset;
+}
+
+export interface ApiRuntimeOption {
+  id: ApiRuntimePreset;
+  label: string;
+  description: string;
+  suggestedUrl?: string;
+}
+
+export interface BackendPingState {
+  message?: string;
+  status: 'error' | 'idle' | 'success';
+  testing: boolean;
 }
 
 export interface RecognitionStatus {

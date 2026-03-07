@@ -35,6 +35,7 @@ export function AttendanceKioskApp() {
       <AdminScreen
         apiSettings={kiosk.apiSettings}
         appMode={kiosk.appMode}
+        backendPingState={kiosk.backendPingState}
         cameraRef={cameraRef}
         directoryEmployees={kiosk.directoryEmployees}
         employeeDraft={kiosk.employeeDraft}
@@ -48,8 +49,10 @@ export function AttendanceKioskApp() {
         onCaptureEmployeePhoto={() => capturePhoto('employee')}
         onEmployeeDraftChange={kiosk.setEmployeeDraft}
         onEmployeeQueryChange={kiosk.setEmployeeQuery}
+        onPingBackend={kiosk.pingBackend}
         onSaveApiSettings={kiosk.saveApiSettings}
         onSaveEmployee={kiosk.submitEmployeeDraft}
+        onSelectApiRuntimePreset={kiosk.selectApiRuntimePreset}
         onSelectEmployee={kiosk.selectEmployee}
         onSetApiUrlDraft={kiosk.setApiUrlDraft}
         onSwitchMode={kiosk.setAppMode}
@@ -67,6 +70,7 @@ export function AttendanceKioskApp() {
       activePanel={kiosk.activePanel}
       apiSettings={kiosk.apiSettings}
       appMode={kiosk.appMode}
+      backendPingState={kiosk.backendPingState}
       cameraRef={cameraRef}
       filteredEmployees={kiosk.filteredEmployees}
       initialized={kiosk.initialized}
@@ -78,8 +82,10 @@ export function AttendanceKioskApp() {
       onFacesDetected={kiosk.handleFacesDetected}
       onManualDraftChange={kiosk.setManualDraft}
       onOpenPanel={kiosk.setActivePanel}
+      onPingBackend={kiosk.pingBackend}
       onSaveApiSettings={kiosk.saveApiSettings}
       onSaveManualAttendance={kiosk.submitManualAttendance}
+      onSelectApiRuntimePreset={kiosk.selectApiRuntimePreset}
       onSetApiUrlDraft={kiosk.setApiUrlDraft}
       onSwitchMode={kiosk.setAppMode}
       onSyncNow={kiosk.syncEverything}

@@ -47,8 +47,6 @@ export function findBestEmployeeMatch(
   let bestMatch: { employee: Employee; similarity: number } | null = null;
 
   for (const employee of employees) {
-    if (!employee.faceEmbedding || employee.faceEmbedding.length === 0) continue;
-
     const similarity = cosineSimilarity(embedding, employee.faceEmbedding);
 
     if (!bestMatch || similarity > bestMatch.similarity) {
