@@ -12,13 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { resolveAssetUrl } from '../../../services/attendance';
 import { useAttendance } from '../../../context/AttendanceContext';
 import { RootStackParamList } from '../../../../../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EmployeeDirectory'>;
 
-function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }) {
+function ProfileImage(props: { label: string; uri?: string }) {
     if (!props.uri) {
         return (
             <View style={styles.profilePlaceholder}>
@@ -29,7 +28,7 @@ function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }
 
     return (
         <Image
-            source={{ uri: resolveAssetUrl(props.uri, props.apiBaseUrl) }}
+            source={{ uri: props.uri }}
             style={styles.profileImage}
         />
     );
@@ -77,7 +76,6 @@ export function EmployeeDirectoryScreen() {
                                 pressed && { opacity: 0.7 },
                             ]}>
                             <ProfileImage
-                                apiBaseUrl={kiosk.apiSettings.baseUrl}
                                 label={employee.name}
                                 uri={employee.faceImageUrl}
                             />

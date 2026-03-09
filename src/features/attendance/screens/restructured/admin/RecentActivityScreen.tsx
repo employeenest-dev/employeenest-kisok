@@ -23,37 +23,20 @@ export function RecentActivityScreen() {
                     <Text style={styles.backButtonText}>← Back</Text>
                 </Pressable>
                 <Text style={styles.title}>Recent Activity</Text>
-                <Text style={styles.subtitle}>Audit logs of synced and pending attendance</Text>
+                <Text style={styles.subtitle}>Audit logs of local attendance records</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Synced History</Text>
+                    <Text style={styles.sectionTitle}>Attendance History</Text>
                     {kiosk.recentAttendance.length === 0 ? (
-                        <Text style={styles.emptyState}>No attendance has synced yet.</Text>
+                        <Text style={styles.emptyState}>No attendance records found on this device.</Text>
                     ) : (
                         kiosk.recentAttendance.map(record => (
                             <View key={record.id} style={styles.listItem}>
                                 <View>
                                     <Text style={styles.listTitle}>{record.employeeName ?? record.employeeId}</Text>
                                     <Text style={styles.listCopy}>{describeAttendance(record)}</Text>
-                                </View>
-                                <Text style={styles.listMeta}>{formatTimestamp(record.timestamp)}</Text>
-                            </View>
-                        ))
-                    )}
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Pending Uploads</Text>
-                    {kiosk.pendingAttendance.length === 0 ? (
-                        <Text style={styles.emptyState}>No offline attendance is waiting to sync.</Text>
-                    ) : (
-                        kiosk.pendingAttendance.map(record => (
-                            <View key={record.localId} style={styles.listItem}>
-                                <View>
-                                    <Text style={styles.listTitle}>{record.employeeName}</Text>
-                                    <Text style={styles.listCopy}>{record.type} via {record.method}</Text>
                                 </View>
                                 <Text style={styles.listMeta}>{formatTimestamp(record.timestamp)}</Text>
                             </View>

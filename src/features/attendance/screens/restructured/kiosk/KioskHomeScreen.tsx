@@ -15,9 +15,7 @@ import { APP_NAME, DEVICE_ID, OFFICE_NAME } from '../../../../../config/mvp';
 import { KioskCamera, KioskCameraHandle } from '../../../components/KioskCamera';
 import { ModeSwitch } from '../../../components/ModeSwitch';
 import {
-    buildSyncLabel,
     formatTimestamp,
-    resolveAssetUrl,
 } from '../../../services/attendance';
 import { useAttendance } from '../../../context/AttendanceContext';
 import { RootStackParamList } from '../../../../../navigation/types';
@@ -48,7 +46,7 @@ function ActionButton(props: {
     );
 }
 
-function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }) {
+function ProfileImage(props: { label: string; uri?: string }) {
     if (!props.uri) {
         return (
             <View style={styles.profilePlaceholder}>
@@ -59,7 +57,7 @@ function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }
 
     return (
         <Image
-            source={{ uri: resolveAssetUrl(props.uri, props.apiBaseUrl) }}
+            source={{ uri: props.uri }}
             style={styles.profileImage}
         />
     );
@@ -131,7 +129,6 @@ export function KioskHomeScreen() {
 
                         <View style={styles.actionRow}>
                             <ActionButton label="Manual fallback" onPress={() => navigation.navigate('ManualAttendance')} />
-                            <ActionButton kind="secondary" label="Sync now" onPress={kiosk.syncEverything} />
                             <ActionButton
                                 kind="secondary"
                                 label="Settings"
@@ -154,7 +151,6 @@ export function KioskHomeScreen() {
                         <Text style={styles.panelTitle}>Current automatic match</Text>
                         <View style={styles.matchCard}>
                             <ProfileImage
-                                apiBaseUrl={kiosk.apiSettings.baseUrl}
                                 label={kiosk.matchedEmployee.name}
                                 uri={kiosk.matchedEmployee.faceImageUrl}
                             />
@@ -173,16 +169,16 @@ export function KioskHomeScreen() {
 
                 <View style={styles.metricsRow}>
                     <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Cached employees</Text>
-                        <Text style={styles.metricValue}>{kiosk.syncState.employeeCount}</Text>
+                        <Text style={styles.metricLabel}>Enrolled employees</Text>
+                        <Text style={styles.metricValue}>{kiosk.directoryEmployees.length}</Text>
                     </View>
                     <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Pending queue</Text>
-                        <Text style={styles.metricValue}>{kiosk.syncState.pendingUploads}</Text>
+                        <Text style={styles.metricLabel}>Total records</Text>
+                        <Text style={styles.metricValue}>{kiosk.recentAttendance.length}</Text>
                     </View>
                     <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Last sync</Text>
-                        <Text style={styles.metricValue}>{buildSyncLabel(kiosk.syncState)}</Text>
+                        <Text style={styles.metricLabel}>Last record</Text>
+                        <Text style={styles.metricValue}>{kiosk.recentAttendance[0] ? formatTimestamp(kiosk.recentAttendance[0].timestamp) : 'None'}</Text>
                     </View>
                 </View>
             </ScrollView>

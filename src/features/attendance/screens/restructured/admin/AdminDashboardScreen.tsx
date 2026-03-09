@@ -12,7 +12,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { APP_NAME, DEVICE_ID } from '../../../../../config/mvp';
 import { ModeSwitch } from '../../../components/ModeSwitch';
-import { buildSyncLabel } from '../../../services/attendance';
 import { useAttendance } from '../../../context/AttendanceContext';
 import { RootStackParamList } from '../../../../../navigation/types';
 
@@ -101,16 +100,16 @@ export function AdminDashboardScreen() {
 
                 <View style={styles.metricsRow}>
                     <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Employees</Text>
-                        <Text style={styles.metricValue}>{kiosk.syncState.employeeCount}</Text>
+                        <Text style={styles.metricLabel}>Total Employees</Text>
+                        <Text style={styles.metricValue}>{kiosk.employees.length}</Text>
                     </View>
                     <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Pending uploads</Text>
-                        <Text style={styles.metricValue}>{kiosk.syncState.pendingUploads}</Text>
+                        <Text style={styles.metricLabel}>Attendance Records</Text>
+                        <Text style={styles.metricValue}>{kiosk.recentAttendance.length}</Text>
                     </View>
                     <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Last sync</Text>
-                        <Text style={styles.metricValue}>{buildSyncLabel(kiosk.syncState)}</Text>
+                        <Text style={styles.metricLabel}>Status</Text>
+                        <Text style={styles.metricValue}>Standalone</Text>
                     </View>
                 </View>
 
@@ -132,12 +131,12 @@ export function AdminDashboardScreen() {
                         />
                         <NavCard
                             title="Activity Logs"
-                            description="View recent history and pending sync queue"
+                            description="View recent history and local storage data"
                             onPress={() => navigation.navigate('RecentActivity')}
                         />
                         <NavCard
                             title="System Settings"
-                            description="Configure API URL and backend connection"
+                            description="Configuration and local data management"
                             onPress={() => navigation.navigate('GlobalSettings', { fromKiosk: false })}
                         />
                     </View>
@@ -146,7 +145,6 @@ export function AdminDashboardScreen() {
                 <View style={styles.panel}>
                     <Text style={styles.panelTitle}>Quick Actions</Text>
                     <View style={styles.actionRow}>
-                        <ActionButton kind="secondary" label="Sync now" onPress={kiosk.syncEverything} />
                         <ActionButton
                             kind="primary"
                             label="Launch kiosk mode"

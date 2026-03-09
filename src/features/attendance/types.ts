@@ -1,15 +1,9 @@
 export type AttendanceType = 'CHECKIN' | 'CHECKOUT';
 export type AttendanceMethod = 'FACE' | 'MANUAL';
 export type MatchOutcome = 'AUTO' | 'REVIEW' | 'MANUAL' | 'UNAVAILABLE';
-export type ActivePanel = 'manual' | 'none' | 'settings';
+export type ActivePanel = 'manual' | 'none' | 'settings' | 'employeeEditor';
 export type AppMode = 'admin' | 'kiosk';
 export type EmployeeEditorMode = 'create' | 'edit' | 'view';
-export type ApiRuntimePreset =
-  | 'android-emulator'
-  | 'android-usb'
-  | 'ios-simulator'
-  | 'physical-device'
-  | 'custom';
 
 export interface RecognitionThresholds {
   autoMatch: number;
@@ -31,41 +25,15 @@ export interface Employee {
 
 export interface AttendanceRecord {
   id: string;
-  syncId: string;
   employeeId: string;
   employeeName?: string;
   timestamp: string;
   type: AttendanceType;
   method: AttendanceMethod;
   confidence?: number;
-  photoUrl?: string;
+  photoUrl?: string; // Standardized to Url for both
   deviceId: string;
   createdAt: string;
-  status?: 'pending' | 'synced';
-}
-
-export interface PendingAttendanceRecord {
-  localId: string;
-  syncId: string;
-  employeeId: string;
-  employeeName: string;
-  timestamp: string;
-  type: AttendanceType;
-  method: AttendanceMethod;
-  confidence?: number;
-  photoUri?: string;
-  deviceId: string;
-  createdAt: string;
-  failureReason?: string;
-}
-
-export interface SyncState {
-  employeeCount: number;
-  pendingUploads: number;
-  syncing: boolean;
-  lastEmployeesSyncAt?: string;
-  lastAttendanceSyncAt?: string;
-  lastError?: string;
 }
 
 export interface ManualDraft {
@@ -84,26 +52,6 @@ export interface OnboardingDraft {
   faceEmbedding?: number[];
   faceImageUrl?: string;
   embeddingVersion?: number;
-}
-
-export interface ApiSettings {
-  baseUrl: string;
-  draftBaseUrl: string;
-  runtimeOptions: ApiRuntimeOption[];
-  runtimePreset: ApiRuntimePreset;
-}
-
-export interface ApiRuntimeOption {
-  id: ApiRuntimePreset;
-  label: string;
-  description: string;
-  suggestedUrl?: string;
-}
-
-export interface BackendPingState {
-  message?: string;
-  status: 'error' | 'idle' | 'success';
-  testing: boolean;
 }
 
 export interface RecognitionStatus {

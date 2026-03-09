@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 import { KioskCamera, KioskCameraHandle } from '../../../components/KioskCamera';
-import { formatTimestamp, normalizePhotoUri, resolveAssetUrl } from '../../../services/attendance';
+import { formatTimestamp, normalizePhotoUri } from '../../../services/attendance';
 import { useAttendance } from '../../../context/AttendanceContext';
 import { AttendanceRecord } from '../../../types';
 
@@ -40,7 +40,7 @@ function ActionButton(props: {
     );
 }
 
-function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }) {
+function ProfileImage(props: { label: string; uri?: string }) {
     if (!props.uri) {
         return (
             <View style={styles.profilePlaceholder}>
@@ -51,7 +51,7 @@ function ProfileImage(props: { apiBaseUrl: string; label: string; uri?: string }
 
     return (
         <Image
-            source={{ uri: resolveAssetUrl(props.uri, props.apiBaseUrl) }}
+            source={{ uri: props.uri }}
             style={styles.profileImage}
         />
     );
@@ -143,7 +143,6 @@ export function EmployeeEditorScreen() {
                             </View>
                             <View style={styles.previewRow}>
                                 <ProfileImage
-                                    apiBaseUrl={kiosk.apiSettings.baseUrl}
                                     label={kiosk.employeeDraft.name || 'Employee'}
                                     uri={kiosk.employeeDraft.photoUri ?? kiosk.employeeDraft.faceImageUrl}
                                 />
@@ -180,7 +179,6 @@ export function EmployeeEditorScreen() {
                     <View style={styles.contentContainer}>
                         <View style={styles.profileHero}>
                             <ProfileImage
-                                apiBaseUrl={kiosk.apiSettings.baseUrl}
                                 label={kiosk.selectedEmployee.name}
                                 uri={kiosk.selectedEmployee.faceImageUrl}
                             />
@@ -205,7 +203,7 @@ export function EmployeeEditorScreen() {
                         <View style={styles.panel}>
                             <Text style={styles.panelTitle}>Recent Attendance</Text>
                             {selectedAttendance.length === 0 ? (
-                                <Text style={styles.emptyState}>No synced attendance available for this employee.</Text>
+                                <Text style={styles.emptyState}>No local attendance available for this employee.</Text>
                             ) : (
                                 kiosk.recentAttendance.slice(0, 10).map((record: AttendanceRecord) => (
                                     <View key={record.id} style={styles.historyRow}>
@@ -213,7 +211,7 @@ export function EmployeeEditorScreen() {
                                             <Text style={styles.historyTitle}>{record.type}</Text>
                                             <Text style={styles.historyMeta}>{formatTimestamp(record.timestamp)}</Text>
                                         </View>
-                                        <Text style={styles.historyStatus}>Synced</Text>
+                                        <Text style={styles.historyStatus}>Local</Text>
                                     </View>
                                 ))
                             )}

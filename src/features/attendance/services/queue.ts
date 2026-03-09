@@ -2,7 +2,6 @@ import {
   AttendanceRecord,
   AttendanceType,
   Employee,
-  PendingAttendanceRecord,
 } from '../types';
 import { createId } from './id';
 
@@ -25,15 +24,15 @@ export function filterEmployees(employees: Employee[], query: string): Employee[
   );
 }
 
-export function buildPendingAttendance(args: {
+export function buildAttendanceRecord(args: {
   confidence?: number;
   deviceId: string;
   employee: Employee;
-  method: PendingAttendanceRecord['method'];
-  photoUri?: string;
+  method: AttendanceRecord['method'];
+  photoUrl?: string;
   timestamp?: string;
   type: AttendanceType;
-}): PendingAttendanceRecord {
+}): AttendanceRecord {
   const timestamp = args.timestamp ?? new Date().toISOString();
 
   return {
@@ -42,10 +41,9 @@ export function buildPendingAttendance(args: {
     employeeId: args.employee.id,
     employeeName: args.employee.name,
     confidence: args.confidence,
-    localId: createId('local'),
+    id: createId('rec'),
     method: args.method,
-    photoUri: args.photoUri,
-    syncId: createId('sync'),
+    photoUrl: args.photoUrl,
     timestamp,
     type: args.type,
   };
@@ -54,14 +52,13 @@ export function buildPendingAttendance(args: {
 export function applyLastAttendanceTypes(
   employees: Employee[],
   recentAttendance: AttendanceRecord[],
-  pendingAttendance: PendingAttendanceRecord[],
 ): Employee[] {
   const lastTypeByEmployee = new Map<string, AttendanceType>();
-  const combined = [...recentAttendance, ...pendingAttendance].sort((left, right) =>
+  const sortedHistory = [...recentAttendance].sort((left, right) =>
     right.timestamp.localeCompare(left.timestamp),
   );
 
-  for (const record of combined) {
+  for (const record of sortedHistory) {
     if (!lastTypeByEmployee.has(record.employeeId)) {
       lastTypeByEmployee.set(record.employeeId, record.type);
     }

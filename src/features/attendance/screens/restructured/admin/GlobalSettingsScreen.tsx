@@ -1,5 +1,5 @@
-import React from 'react';
 import {
+    Alert,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 
-import { ApiSettingsPanel } from '../../../components/ApiSettingsPanel';
 import { useAttendance } from '../../../context/AttendanceContext';
 import { RootStackParamList } from '../../../../../navigation/types';
 
@@ -19,6 +18,24 @@ export function GlobalSettingsScreen() {
     const navigation = useNavigation();
     const route = useRoute<SettingsRouteProp>();
     const kiosk = useAttendance();
+
+    const handleReset = () => {
+        Alert.alert(
+            'Clear All Local Data',
+            'Are you sure? This will permanently delete all employees and attendance records from this device.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete Everything',
+                    style: 'destructive',
+                    onPress: () => {
+                        kiosk.clearAllData();
+                        navigation.goBack();
+                    },
+                },
+            ],
+        );
+    };
 
     return (
         <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -30,26 +47,47 @@ export function GlobalSettingsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <ApiSettingsPanel
-                    apiSettings={kiosk.apiSettings}
-                    backendPingState={kiosk.backendPingState}
-                    onClose={() => navigation.goBack()}
-                    onPingBackend={kiosk.pingBackend}
-                    onSaveApiSettings={kiosk.saveApiSettings}
-                    onSelectApiRuntimePreset={kiosk.selectApiRuntimePreset}
-                    onSetApiUrlDraft={kiosk.setApiUrlDraft}
-                    title="Backend Connection"
-                />
+                <View style={styles.infoPanel}>
+                    <Text style={styles.infoTitle}>Standalone Configuration</Text>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Database</Text>
+                        <Text style={styles.infoValue}>Local (MMKV)</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Connected Device</Text>
+                        <Text style={styles.infoValue}>Native Terminal 01</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>System Status</Text>
+                        <Text style={styles.infoValue}>Fully Standalone</Text>
+                    </View>
+                </View>
+
+                <View style={styles.infoPanel}>
+                    <Text style={styles.infoTitle}>Data Management</Text>
+                    <Text style={styles.infoCopy}>
+                        Manage the local state of this tablet. Resetting will clear all locally enrolled faces.
+                    </Text>
+                    <Pressable
+                        onPress={handleReset}
+                        style={({ pressed }) => [
+                            styles.resetButton,
+                            pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }
+                        ]}
+                    >
+                        <Text style={styles.resetButtonText}>Clear All Local Data</Text>
+                    </Pressable>
+                </View>
 
                 <View style={styles.infoPanel}>
                     <Text style={styles.infoTitle}>About Device</Text>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>App Version</Text>
-                        <Text style={styles.infoValue}>1.0.0</Text>
+                        <Text style={styles.infoValue}>1.0.0 (Offline Build)</Text>
                     </View>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Platform</Text>
-                        <Text style={styles.infoValue}>Android/iOS Native</Text>
+                        <Text style={styles.infoValue}>Android/iOS Standalone</Text>
                     </View>
                 </View>
             </ScrollView>
@@ -89,6 +127,12 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         marginBottom: 4,
     },
+    infoCopy: {
+        color: '#8fb7be',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 4,
+    },
     infoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -104,6 +148,18 @@ const styles = StyleSheet.create({
         color: '#f2fbfa',
         fontSize: 14,
         fontWeight: '600',
+    },
+    resetButton: {
+        backgroundColor: '#572727',
+        borderRadius: 16,
+        paddingVertical: 14,
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    resetButtonText: {
+        color: '#ffcbcb',
+        fontSize: 15,
+        fontWeight: '700',
     },
     safeArea: {
         flex: 1,
